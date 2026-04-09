@@ -1,0 +1,68 @@
+177 INFO: PyInstaller: 6.10.0, contrib hooks: 2025.4
+177 INFO: Python: 3.12.4
+197 INFO: Platform: Windows-11-10.0.26200-SP0
+197 INFO: Python environment: C:\Programs\Python
+199 INFO: Removing temporary files and cleaning cache in C:\Users\Administrator\AppData\Local\pyinstaller
+200 INFO: Module search paths (PYTHONPATH):
+['C:\\Programs\\Python\\Scripts\\pyinstaller.exe',
+ 'C:\\Programs\\Python\\python312.zip',
+ 'C:\\Programs\\Python\\DLLs',
+ 'C:\\Programs\\Python\\Lib',
+ 'C:\\Programs\\Python',
+ 'C:\\Programs\\Python\\Lib\\site-packages',
+ 'C:\\Users\\Administrator\\.openclaw\\workspace\\newRS485']
+450 INFO: Appending 'datas' from .spec
+450 INFO: checking Analysis
+450 INFO: Building Analysis because Analysis-00.toc is non existent
+451 INFO: Running Analysis Analysis-00.toc
+451 INFO: Target bytecode optimization level: 0
+451 INFO: Initializing module dependency graph...
+452 INFO: Caching module graph hooks...
+464 INFO: Analyzing base_library.zip ...
+1419 INFO: Processing standard module hook 'hook-heapq.py' from 'C:\\Programs\\Python\\Lib\\site-packages\\PyInstaller\\hooks'
+1481 INFO: Processing standard module hook 'hook-encodings.py' from 'C:\\Programs\\Python\\Lib\\site-packages\\PyInstaller\\hooks'
+2698 INFO: Processing standard module hook 'hook-pickle.py' from 'C:\\Programs\\Python\\Lib\\site-packages\\PyInstaller\\hooks'
+3771 INFO: Caching module dependency graph...
+3853 INFO: Looking for Python shared library...
+3859 INFO: Using Python shared library: C:\Programs\Python\python312.dll
+3859 INFO: Analyzing C:\Users\Administrator\.openclaw\workspace\newRS485\main.py
+3861 INFO: Processing standard module hook 'hook-PyQt5.py' from 'C:\\Programs\\Python\\Lib\\site-packages\\PyInstaller\\hooks'
+3930 INFO: Processing standard module hook 'hook-PyQt5.QtWidgets.py' from 'C:\\Programs\\Python\\Lib\\site-packages\\PyInstaller\\hooks'
+4016 INFO: Processing standard module hook 'hook-PyQt5.QtGui.py' from 'C:\\Programs\\Python\\Lib\\site-packages\\PyInstaller\\hooks'
+4245 INFO: Processing standard module hook 'hook-PyQt5.QtCore.py' from 'C:\\Programs\\Python\\Lib\\site-packages\\PyInstaller\\hooks'
+4489 INFO: Processing module hooks (post-graph stage)...
+4492 WARNING: Hidden import "sip" not found!
+4515 INFO: Performing binary vs. data reclassification (102 entries)
+4550 INFO: Looking for ctypes DLLs
+4560 WARNING: Ignoring /System/Library/Frameworks/CoreFoundation.framework/CoreFoundation imported from C:\Programs\Python\Lib\site-packages\serial\tools\list_ports_osx.py - only basenames are supported with ctypes imports!
+4560 WARNING: Ignoring /System/Library/Frameworks/IOKit.framework/IOKit imported from C:\Programs\Python\Lib\site-packages\serial\tools\list_ports_osx.py - only basenames are supported with ctypes imports!
+4564 INFO: Analyzing run-time hooks ...
+4565 INFO: Including run-time hook 'pyi_rth_inspect.py' from 'C:\\Programs\\Python\\Lib\\site-packages\\PyInstaller\\hooks\\rthooks'
+4567 INFO: Including run-time hook 'pyi_rth_pyqt5.py' from 'C:\\Programs\\Python\\Lib\\site-packages\\PyInstaller\\hooks\\rthooks'
+4568 INFO: Processing pre-find-module-path hook 'hook-_pyi_rth_utils.py' from 'C:\\Programs\\Python\\Lib\\site-packages\\PyInstaller\\hooks\\pre_find_module_path'
+4569 INFO: Processing standard module hook 'hook-_pyi_rth_utils.py' from 'C:\\Programs\\Python\\Lib\\site-packages\\PyInstaller\\hooks'
+4572 INFO: Including run-time hook 'pyi_rth_pkgutil.py' from 'C:\\Programs\\Python\\Lib\\site-packages\\PyInstaller\\hooks\\rthooks'
+4577 INFO: Looking for dynamic libraries
+4679 INFO: Extra DLL search directories (AddDllDirectory): ['C:\\Programs\\Python\\Lib\\site-packages\\PyQt5\\Qt5\\bin']
+4679 INFO: Extra DLL search directories (PATH): ['C:\\Programs\\Python\\Lib\\site-packages\\PyQt5\\Qt5\\bin']
+5357 INFO: Warnings written to C:\Users\Administrator\.openclaw\workspace\newRS485\build\RS485_Stepper_Controller\warn-RS485_Stepper_Controller.txt
+5372 INFO: Graph cross-reference written to C:\Users\Administrator\.openclaw\workspace\newRS485\build\RS485_Stepper_Controller\xref-RS485_Stepper_Controller.html
+5391 INFO: checking PYZ
+5391 INFO: Building PYZ because PYZ-00.toc is non existent
+5391 INFO: Building PYZ (ZlibArchive) C:\Users\Administrator\.openclaw\workspace\newRS485\build\RS485_Stepper_Controller\PYZ-00.pyz
+5598 INFO: Building PYZ (ZlibArchive) C:\Users\Administrator\.openclaw\workspace\newRS485\build\RS485_Stepper_Controller\PYZ-00.pyz completed successfully.
+5609 INFO: checking PKG
+5609 INFO: Building PKG because PKG-00.toc is non existent
+5609 INFO: Building PKG (CArchive) RS485_Stepper_Controller.pkg
+13832 INFO: Building PKG (CArchive) RS485_Stepper_Controller.pkg completed successfully.
+13835 INFO: Bootloader C:\Programs\Python\Lib\site-packages\PyInstaller\bootloader\Windows-64bit-intel\runw.exe
+13835 INFO: checking EXE
+13835 INFO: Building EXE because EXE-00.toc is non existent
+13835 INFO: Building EXE from EXE-00.toc
+13838 INFO: Copying bootloader EXE to C:\Users\Administrator\.openclaw\workspace\newRS485\dist\RS485_Stepper_Controller.exe
+13872 INFO: Copying icon to EXE
+13903 INFO: Copying 0 resources to EXE
+13903 INFO: Embedding manifest in EXE
+13935 INFO: Appending PKG archive to EXE
+13990 INFO: Fixing EXE headers
+14317 INFO: Building EXE from EXE-00.toc completed successfully.
