@@ -2,7 +2,7 @@
 
 A professional Python-based RS485 stepper motor control software with Modbus RTU protocol support. Features a modern PyQt5 GUI interface for precise motor control and monitoring.
 
-> **Compatible Motor**: This software is designed for the [IG Series NEMA34 Closed Loop Stepper Motor](https://www.adampower.de/integrated-stepper-motor/nema34_closed_loop_stepper_motor) - a high-performance integrated stepper motor with RS485 communication support.
+> **Compatible Motor**: This software is optimized for the [NEMA34 Absolute Encoder Stepper Motor](https://www.adampower.de/nema34_absolute_encoder_stepper_motor) — a high-performance closed-loop stepper motor featuring RS485 Modbus RTU communication, 17-bit absolute encoder for precise position feedback, and integrated drive electronics. Perfect for applications requiring accurate positioning and reliable industrial communication.
 
 ## 🚀 Features
 
@@ -111,7 +111,7 @@ newRS485/
 
 ## 🔌 Hardware Setup
 
-This software is compatible with the [IG Series NEMA34 Closed Loop Stepper Motor](https://www.adampower.de/integrated-stepper-motor/nema34_closed_loop_stepper_motor) featuring integrated RS485 Modbus RTU control.
+This software is designed for the [NEMA34 Absolute Encoder Stepper Motor](https://www.adampower. de/nema34_absolute_encoder_stepper_motor) with integrated RS485 Modbus RTU control, featuring 17-bit absolute encoder resolution and precise position tracking.
 
 ### RS485 Connection
 
@@ -156,7 +156,7 @@ USB-RS485 Adapter    Stepper Driver
 - `0x0047`: Return to Origin
 - `0x0048`: Position Mode (Incremental/Absolute)
 
-## 🛠�?Development
+## 🛠�?Development
 
 ### Code Standards
 

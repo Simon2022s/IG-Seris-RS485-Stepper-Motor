@@ -467,6 +467,38 @@ class StepperMotorController:
                 pass
         return None
 
+    def read_version_number(self):
+        """Read software version number from register 0x0002-0x0003"""
+        # Read 2 registers starting from 0x0002 (32-bit value)
+        resp = self.read_register(0x0002, 2)
+        if resp and len(resp) >= 16:  # Expected: slave_id(2) + func(2) + bytes(2) + data(8) + crc(4) = 18
+            try:
+                # Extract the 4 bytes of version data (skip slave_id, func, bytes, crc)
+                data_hex = resp[6:-4]  # Remove header and CRC
+                if len(data_hex) >= 8:
+                    # Convert hex string to bytes for ASCII conversion
+                    version_bytes = bytes.fromhex(data_hex)
+
+                    # Convert to ASCII string, stopping at null terminator
+                    version_str = ""
+                    for byte in version_bytes:
+                        if byte == 0:
+                            break
+                        version_str += chr(byte)
+
+                    # Extract numeric version if present (look for patterns like "113", "114", etc.)
+                    import re
+                    version_numbers = re.findall(r'\d+', version_str)
+                    if version_numbers:
+                        return int(version_numbers[0])  # Return first number found
+
+                    return version_str  # Return full string if no numbers found
+
+            except Exception as e:
+                self.log(f"Error parsing version number: {e}", "ERROR")
+                pass
+        return None
+
     def read_idle_current_value(self, address):
         """Read idle current value - special parsing for last 2 bytes before CRC"""
         resp = self.read_register(address, 1)
@@ -481,6 +513,74 @@ class StepperMotorController:
                 self.log(f"Error parsing idle current value: {e}", "ERROR")
                 pass
         return None
+
+    def get_work_speed_register_strategy(self):
+        """Determine which register strategy to use based on version number"""
+        version = self.read_version_number()
+        if version is None:
+            # Default to newer version strategy if version cannot be determined
+            return "32bit", None
+
+        # Convert version to integer if it's a number
+        try:
+            version_num = int(version) if isinstance(version, str) else version
+            if version_num >= 113:
+                return "32bit", version_num  # Use 0x00D8 register with 0.01 RPM scaling
+            else:
+                return "16bit", version_num  # Use 0x009A register with direct RPM
+        except (ValueError, TypeError):
+            # If version parsing fails, default to 32-bit strategy
+            return "32bit", None
+
+    def read_work_speed(self):
+        """Read work speed using version-appropriate register"""
+        strategy, version = self.get_work_speed_register_strategy()
+
+        if strategy == "32bit":
+            # Version >= 113: Use 0x00D8 register (32-bit, 0.01 RPM units)
+            value = self.read_32bit_register(0x00D8, 0x00D9)
+            if value is not None:
+                rpm_value = value * 0.01  # Convert from 0.01 RPM to RPM
+                self.log(f"Work Speed: {rpm_value:.2f} RPM (32-bit register, version {version})", "INFO")
+                return int(rpm_value)  # Return integer RPM for display
+        else:
+            # Version < 113: Use 0x009A register (16-bit, direct RPM)
+            value = self.read_register_value(0x009A)
+            if value is not None:
+                self.log(f"Work Speed: {value} RPM (16-bit register, version {version})", "INFO")
+                return value
+
+        return None
+
+    def write_work_speed(self, rpm_value):
+        """Write work speed using version-appropriate register"""
+        if rpm_value < 0:
+            self.log("Work speed must be positive", "ERROR")
+            return False
+
+        strategy, version = self.get_work_speed_register_strategy()
+
+        if strategy == "32bit":
+            # Version >= 113: Use 0x00D8 register (32-bit, 0.01 RPM units)
+            speed_001rpm = int(rpm_value * 100)  # Convert RPM to 0.01 RPM
+            low_word = speed_001rpm & 0xFFFF
+            high_word = (speed_001rpm >> 16) & 0xFFFF
+
+            success1 = self.write_register_value(0x00D8, low_word)
+            success2 = self.write_register_value(0x00D9, high_word)
+
+            if success1 and success2:
+                self.log(f"Work Speed set to {rpm_value} RPM (32-bit register 0x00D8/0x00D9, version {version})", "SUCCESS")
+                return True
+        else:
+            # Version < 113: Use 0x009A register (16-bit, direct RPM)
+            success = self.write_register_value(0x009A, rpm_value)
+            if success:
+                self.log(f"Work Speed set to {rpm_value} RPM (16-bit register 0x009A, version {version})", "SUCCESS")
+                return True
+
+        self.log("Failed to set work speed", "ERROR")
+        return False
 
     def send_hex_command(self, hex_command, add_crc=True):
         """Send hex command string and return success boolean"""

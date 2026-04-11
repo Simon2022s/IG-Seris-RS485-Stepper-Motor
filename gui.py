@@ -42,6 +42,9 @@ class RS485StepperMotorGUI(QMainWindow):
         # Initialize serial settings
         self.serial_settings = self.load_serial_settings()
 
+        # Track version number for UI updates
+        self.version_number = None
+
         self.setup_logging()
         self.init_ui()
         self.setup_connections()
@@ -112,8 +115,8 @@ class RS485StepperMotorGUI(QMainWindow):
         layout = QVBoxLayout(widget)
 
         # 1. Connection Section
-        setup_group = QGroupBox("Connection")
-        setup_group.setStyleSheet("QGroupBox { font-size: 11px; padding-top: 10px; }")
+        self.connection_group = QGroupBox("Connection")
+        self.connection_group.setStyleSheet("QGroupBox { font-size: 11px; padding-top: 10px; }")
         setup_layout = QHBoxLayout()
 
         # Connection buttons - rectangular with equal dimensions
@@ -206,8 +209,8 @@ class RS485StepperMotorGUI(QMainWindow):
         setup_layout.addStretch()
         setup_layout.addWidget(self.logs_button)
 
-        setup_group.setLayout(setup_layout)
-        layout.addWidget(setup_group)
+        self.connection_group.setLayout(setup_layout)
+        layout.addWidget(self.connection_group)
 
         # 2. Parameters & Status Section
         params_status_group = QGroupBox("Parameters")
@@ -1520,6 +1523,9 @@ class RS485StepperMotorGUI(QMainWindow):
             success = self.controller.set_slave_address(motor_id)
             if success:
                 self.handle_log_message(f"Motor ID set to {motor_id}", "SUCCESS")
+                # Requery version number with new motor ID
+                if self.controller.is_connected():
+                    QTimer.singleShot(300, self.query_version_number)
             else:
                 self.show_error("Failed to set motor ID")
         except ValueError:
@@ -1601,48 +1607,25 @@ class RS485StepperMotorGUI(QMainWindow):
             self.show_error("Failed to query idle current - no response from device")
 
     def on_query_work_speed_clicked(self):
-        """Query work speed - try both register types"""
-        # Try 16-bit register first (0x009A returns RPM directly)
-        value_16 = self.controller.read_register_value(REG_WORK_SPEED_16)
-        if value_16 is not None:
-            self.work_speed_input.setText(str(value_16))
-            self.handle_log_message(f"Work Speed: {value_16} RPM (16-bit register)", "INFO")
-            return
-
-        # Try 32-bit register (0x00D8-0x00D9 returns 0.01 RPM)
-        value_32 = self.controller.read_32bit_register(REG_WORK_SPEED_LOW, REG_WORK_SPEED_HIGH)
-        if value_32 is not None:
-            rpm_value = value_32 / 100.0  # Convert from 0.01 RPM to RPM
-            self.work_speed_input.setText(str(int(rpm_value)))
-            self.handle_log_message(f"Work Speed: {rpm_value:.2f} RPM (32-bit register)", "INFO")
-            return
-
-        self.show_error("Failed to query work speed from both register types")
+        """Query work speed using version-appropriate method"""
+        value = self.controller.read_work_speed()
+        if value is not None:
+            self.work_speed_input.setText(str(value))
+            self.handle_log_message(f"Work Speed: {value} RPM", "INFO")
+        else:
+            self.show_error("Failed to query work speed")
 
     def on_set_work_speed_clicked(self):
-        """Set work speed - try both register types"""
+        """Set work speed using version-appropriate method"""
         try:
             speed_rpm = int(self.work_speed_input.text())
             if speed_rpm < 0:
                 self.show_error("Work speed must be positive")
                 return
 
-            # Try setting 16-bit register first (expects RPM directly)
-            success = self.controller.write_register_value(REG_WORK_SPEED_16_SET, speed_rpm)
+            success = self.controller.write_work_speed(speed_rpm)
             if success:
-                self.handle_log_message(f"Work Speed set to {speed_rpm} RPM (16-bit register)", "SUCCESS")
-                return
-
-            # Try setting 32-bit register (expects 0.01 RPM)
-            speed_001rpm = speed_rpm * 100  # Convert RPM to 0.01 RPM
-            low_word = speed_001rpm & 0xFFFF
-            high_word = (speed_001rpm >> 16) & 0xFFFF
-
-            success1 = self.controller.write_register_value(REG_WORK_SPEED_LOW_SET, low_word)
-            success2 = self.controller.write_register_value(REG_WORK_SPEED_HIGH_SET, high_word)
-
-            if success1 and success2:
-                self.handle_log_message(f"Work Speed set to {speed_rpm} RPM (32-bit register)", "SUCCESS")
+                self.handle_log_message(f"Work Speed set to {speed_rpm} RPM", "SUCCESS")
             else:
                 self.show_error("Failed to set work speed")
         except ValueError:
@@ -1785,6 +1768,33 @@ class RS485StepperMotorGUI(QMainWindow):
         # Status update disabled - no status labels in current UI
         pass
 
+    def update_connection_title(self):
+        """Update connection group title with version number"""
+        if self.version_number is not None:
+            self.connection_group.setTitle(f"Connection ~v.{self.version_number}")
+        else:
+            self.connection_group.setTitle("Connection")
+
+    def query_version_number(self):
+        """Query and update version number from device"""
+        if not self.controller.is_connected():
+            return
+
+        try:
+            version = self.controller.read_version_number()
+            if version is not None:
+                self.version_number = version
+                self.handle_log_message(f"Device version: {version}", "SUCCESS")
+                self.update_connection_title()
+            else:
+                self.handle_log_message("Failed to query version number", "WARNING")
+                self.version_number = None
+                self.update_connection_title()
+        except Exception as e:
+            self.handle_log_message(f"Error querying version: {str(e)}", "ERROR")
+            self.version_number = None
+            self.update_connection_title()
+
     def update_ui_state(self):
         """Update UI elements based on connection state"""
         connected = self.controller.is_connected()
@@ -1812,6 +1822,15 @@ class RS485StepperMotorGUI(QMainWindow):
         # If not connected, reset enable/disable button to "Enable"
         if not connected:
             self.enable_disable_btn.setText("Enable")
+
+        # Query version number when connected
+        if connected:
+            # Use a single-shot timer to query version after connection is established
+            QTimer.singleShot(500, self.query_version_number)
+        else:
+            # Clear version when disconnected
+            self.version_number = None
+            self.update_connection_title()
 
     def append_log(self, message: str, level: str = "INFO"):
         """Append message to log with color coding"""
