@@ -12,6 +12,43 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtCore import Qt
 from config import BAUDRATE_OPTIONS, DEFAULT_BAUDRATE
 
+# 统一样式表常量
+COMBO_BOX_STYLE = """
+    QComboBox {
+        background-color: white;
+        border: 1px solid #00a1cb;
+        border-radius: 4px;
+        padding: 2px 8px;
+        min-height: 25px;
+    }
+"""
+
+PRIMARY_BUTTON_STYLE = """
+    QPushButton {
+        background-color: #00a1cb;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        font-weight: bold;
+    }
+    QPushButton:hover {
+        background-color: #008fb3;
+    }
+"""
+
+DANGER_BUTTON_STYLE = """
+    QPushButton {
+        background-color: #f44336;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        font-weight: bold;
+    }
+    QPushButton:hover {
+        background-color: #d32f2f;
+    }
+"""
+
 
 class SerialSetupDialog(QDialog):
     """Serial Setup Dialog Window"""
@@ -52,30 +89,11 @@ class SerialSetupDialog(QDialog):
 
         # Port selection
         self.port_combo = QComboBox()
-        self.port_combo.setStyleSheet("""
-            QComboBox {
-                background-color: white;
-                border: 1px solid #00a1cb;
-                border-radius: 4px;
-                padding: 2px 8px;
-                min-height: 25px;
-            }
-        """)
+        self.port_combo.setStyleSheet(COMBO_BOX_STYLE)
 
         self.refresh_btn = QPushButton("🔄")
         self.refresh_btn.setFixedWidth(40)
-        self.refresh_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #00a1cb;
-                color: white;
-                border: none;
-                border-radius: 4px;
-                font-size: 14px;
-            }
-            QPushButton:hover {
-                background-color: #008fb3;
-            }
-        """)
+        self.refresh_btn.setStyleSheet(PRIMARY_BUTTON_STYLE)
         self.refresh_btn.clicked.connect(self.refresh_ports)
 
         port_layout = QHBoxLayout()
@@ -87,57 +105,25 @@ class SerialSetupDialog(QDialog):
         for baud in BAUDRATE_OPTIONS:
             self.baud_combo.addItem(str(baud), baud)
         self.baud_combo.setCurrentText(str(DEFAULT_BAUDRATE))
-        self.baud_combo.setStyleSheet("""
-            QComboBox {
-                background-color: white;
-                border: 1px solid #00a1cb;
-                border-radius: 4px;
-                padding: 2px 8px;
-                min-height: 25px;
-            }
-        """)
+        self.baud_combo.setStyleSheet(COMBO_BOX_STYLE)
 
         # Data bits
         self.databits_combo = QComboBox()
         self.databits_combo.addItems(['5', '6', '7', '8'])
         self.databits_combo.setCurrentText('8')
-        self.databits_combo.setStyleSheet("""
-            QComboBox {
-                background-color: white;
-                border: 1px solid #00a1cb;
-                border-radius: 4px;
-                padding: 2px 8px;
-                min-height: 25px;
-            }
-        """)
+        self.databits_combo.setStyleSheet(COMBO_BOX_STYLE)
 
         # Parity
         self.parity_combo = QComboBox()
         self.parity_combo.addItems(['None', 'Even', 'Odd', 'Mark', 'Space'])
         self.parity_combo.setCurrentText('None')
-        self.parity_combo.setStyleSheet("""
-            QComboBox {
-                background-color: white;
-                border: 1px solid #00a1cb;
-                border-radius: 4px;
-                padding: 2px 8px;
-                min-height: 25px;
-            }
-        """)
+        self.parity_combo.setStyleSheet(COMBO_BOX_STYLE)
 
         # Stop bits
         self.stopbits_combo = QComboBox()
         self.stopbits_combo.addItems(['1', '1.5', '2'])
         self.stopbits_combo.setCurrentText('1')
-        self.stopbits_combo.setStyleSheet("""
-            QComboBox {
-                background-color: white;
-                border: 1px solid #00a1cb;
-                border-radius: 4px;
-                padding: 2px 8px;
-                min-height: 25px;
-            }
-        """)
+        self.stopbits_combo.setStyleSheet(COMBO_BOX_STYLE)
 
         # Add rows to form
         serial_layout.addRow("Port:", port_layout)
@@ -155,36 +141,12 @@ class SerialSetupDialog(QDialog):
 
         self.ok_btn = QPushButton("OK")
         self.ok_btn.setFixedWidth(80)
-        self.ok_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #00a1cb;
-                color: white;
-                border: none;
-                border-radius: 4px;
-                padding: 6px 12px;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #008fb3;
-            }
-        """)
+        self.ok_btn.setStyleSheet(PRIMARY_BUTTON_STYLE)
         self.ok_btn.clicked.connect(self.accept)
 
         self.cancel_btn = QPushButton("Cancel")
         self.cancel_btn.setFixedWidth(80)
-        self.cancel_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #f44336;
-                color: white;
-                border: none;
-                border-radius: 4px;
-                padding: 6px 12px;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #d32f2f;
-            }
-        """)
+        self.cancel_btn.setStyleSheet(DANGER_BUTTON_STYLE)
         self.cancel_btn.clicked.connect(self.reject)
 
         button_layout.addWidget(self.ok_btn)

@@ -129,7 +129,8 @@ class StepperMotorController:
             # Try a simple status query
             response = self.read_register(REG_STATUS, 1)
             return response is not None
-        except:
+        except Exception as e:
+            self.log(f"Device ID test failed for ID {test_id}: {str(e)}", "DEBUG")
             return False
         finally:
             self.motor_id = original_id
@@ -147,7 +148,8 @@ class StepperMotorController:
                 self.disconnect()
                 return response is not None
             return False
-        except:
+        except Exception as e:
+            self.log(f"Baud rate test failed for {test_baud}: {str(e)}", "DEBUG")
             return False
         finally:
             if original_connected:
@@ -287,7 +289,8 @@ class StepperMotorController:
         # Read 2 consecutive registers starting from low_addr
         resp = self.read_register(low_addr, 2)
 
-        if resp and len(resp) >= 12:  # Expected: slave_id(2) + func(2) + bytes(2) + data(8) + crc(4) = min 16, but we check for 12 to get the data
+        # Expected response format: slave_id(2) + func(2) + bytes(2) + data(8) + crc(4) = 18 chars minimum
+        if resp and len(resp) >= 12:
             try:
                 # Extract the data portion (skip slave_id, func, bytes, crc)
                 data_hex = resp[6:-4] if len(resp) >= 16 else resp[6:]  # Remove header and CRC
@@ -295,8 +298,8 @@ class StepperMotorController:
                     low_val = int(data_hex[0:4], 16)  # Low word (first register)
                     high_val = int(data_hex[4:8], 16)  # High word (second register)
                     return (high_val << 16) | low_val
-            except:
-                pass
+            except (ValueError, IndexError) as e:
+                self.log(f"Error parsing 32-bit register: {str(e)}", "DEBUG")
         return None
         
     # ==================== Motion Control Functions ====================
@@ -436,7 +439,7 @@ class StepperMotorController:
             try:
                 status = int(resp[-4:], 16)
                 return STATUS_MAPPING.get(status, f"Unknown({status})")
-            except:
+            except Exception:
                 pass
         return "Unknown"
         
@@ -447,7 +450,7 @@ class StepperMotorController:
             try:
                 fault = int(resp[-4:], 16)
                 return FAULT_MAPPING.get(fault, f"Unknown({fault})")
-            except:
+            except Exception:
                 pass
         return "No Fault"
         
@@ -531,6 +534,188 @@ class StepperMotorController:
         except Exception as e:
             self.log(f"Error sending hex command: {str(e)}", "ERROR")
             return False
+
+    def read_version_number(self):
+        """Read version number from register 0x0002 (32-bit)
+
+        Example:
+        Send: 0203 0002 0002 CRC
+        Return: 0203 04 3131 0031 CRC
+        Data: 3131 0031 -> 31 31 00 31 -> ASCII: "111"
+        Version: "111"
+        """
+        if not self.is_connected():
+            self.log("Cannot read version: Not connected", "ERROR")
+            return None
+
+        try:
+            # Read raw response from register 0x0002 (need raw hex for version parsing)
+            response = self.read_register(0x0002, 2)
+
+            if response and isinstance(response, str) and len(response) >= 10:
+                # Extract the data portion (skip address, function, byte count)
+                # Format: [slave(2)][func(2)][byte_count(2)][data...][CRC(4)]
+                data_start = 6  # Skip slave + func + byte_count
+                data_hex = response[data_start:-4]  # Remove CRC (last 4 chars)
+
+                if len(data_hex) >= 8:  # Need at least 8 hex chars (4 bytes)
+                    # Parse according to specification: 3131 0031 -> 31 31 00 31
+                    # Continue parsing even after null terminator to get full version
+                    version_bytes = []
+                    for i in range(0, len(data_hex), 2):
+                        if i + 1 < len(data_hex):
+                            byte_hex = data_hex[i:i+2]
+
+                            # Convert all non-null bytes to characters
+                            if byte_hex != "00":
+                                version_bytes.append(byte_hex)
+
+                    if version_bytes:
+                        # Convert hex bytes to ASCII
+                        version_str = ""
+                        for byte_hex in version_bytes:
+                            try:
+                                char_code = int(byte_hex, 16)
+                                if char_code > 0:
+                                    version_str += chr(char_code)
+                            except ValueError:
+                                continue
+
+                        if version_str:
+                            self.log(f"Device version: {version_str}", "SUCCESS")
+                            return version_str
+
+            # If we get here, the query failed - likely incorrect Motor ID
+            self.log("Motor ID maybe incorrect", "WARNING")
+            return None
+
+        except Exception as e:
+            self.log("Motor ID maybe incorrect", "WARNING")
+            return None
+
+    def read_work_speed(self, version_number=None):
+        """Read work speed using version-appropriate register
+
+        Args:
+            version_number: Device version string (e.g., "111", "113")
+                          If None, defaults to newer version behavior
+
+        Returns:
+            Work speed in RPM (float for v>=113, int for v<113)
+        """
+        if not self.is_connected():
+            self.log("Cannot read work speed: Not connected", "ERROR")
+            return None
+
+        try:
+            # Determine which register to use based on version
+            if version_number and self._version_ge(version_number, "113"):
+                # Version >= 113: Use 32-bit register 0x00D8 (0.01 RPM precision)
+                self.log(f"Reading work speed using register 0x00D8 (version {version_number} >= 113)", "INFO")
+
+                response = self.read_register(0x00D8, 2)
+                if response and len(response) >= 16:
+                    # Extract data: skip slave(2) + func(2) + byte_count(2) + CRC(4)
+                    data_hex = response[6:-4]
+                    if len(data_hex) >= 8:
+                        # Get 32-bit value (4 bytes)
+                        value_hex = data_hex[0:8]  # Take all 4 bytes
+                        value = int(value_hex, 16)
+                        rpm = value * 0.01  # Convert from 0.01 RPM to RPM
+                        self.log(f"Work Speed: {rpm} RPM (raw: {value} * 0.01)", "INFO")
+                        return rpm
+
+            else:
+                # Version < 113: Use 16-bit register 0x009A (direct RPM)
+                if version_number:
+                    self.log(f"Reading work speed using register 0x009A (version {version_number} < 113)", "INFO")
+                else:
+                    self.log("Reading work speed using register 0x009A (default for unknown version)", "INFO")
+
+                response = self.read_register(0x009A, 1)
+                if response and len(response) >= 10:
+                    # Extract data: skip slave(2) + func(2) + byte_count(2) + CRC(4)
+                    data_hex = response[6:-4]
+                    if len(data_hex) >= 4:
+                        value = int(data_hex[0:4], 16)  # 16-bit value
+                        self.log(f"Work Speed: {value} RPM", "INFO")
+                        return value
+
+            self.log("Failed to read work speed - invalid response", "WARNING")
+            return None
+
+        except Exception as e:
+            self.log(f"Error reading work speed: {str(e)}", "ERROR")
+            return None
+
+    def write_work_speed(self, speed_rpm, version_number=None):
+        """Write work speed using version-appropriate register
+
+        Args:
+            speed_rpm: Work speed in RPM (int or float)
+            version_number: Device version string (e.g., "111", "113")
+                          If None, defaults to newer version behavior
+
+        Returns:
+            Boolean indicating success
+        """
+        if not self.is_connected():
+            self.log("Cannot write work speed: Not connected", "ERROR")
+            return False
+
+        try:
+            # Determine which register to use based on version
+            if version_number and self._version_ge(version_number, "113"):
+                # Version >= 113: Use 32-bit register 0x00D8 (0.01 RPM precision)
+                self.log(f"Writing work speed using register 0x00D8 (version {version_number} >= 113)", "INFO")
+
+                # Convert RPM to 0.01 RPM units
+                value_001rpm = int(speed_rpm * 100)
+
+                # Write as 32-bit value (split into two 16-bit registers)
+                high_word = (value_001rpm >> 16) & 0xFFFF
+                low_word = value_001rpm & 0xFFFF
+
+                success = self.write_multiple_registers(0x00D8, [low_word, high_word])
+                if success:
+                    self.log(f"Work Speed set to {speed_rpm} RPM (raw: {value_001rpm})", "SUCCESS")
+                return success
+
+            else:
+                # Version < 113: Use 16-bit register 0x009A (direct RPM)
+                if version_number:
+                    self.log(f"Writing work speed using register 0x009A (version {version_number} < 113)", "INFO")
+                else:
+                    self.log("Writing work speed using register 0x009A (default for unknown version)", "INFO")
+
+                # Ensure speed is integer for 16-bit register
+                speed_int = int(speed_rpm)
+                success = self.write_register(0x009A, speed_int)
+                if success:
+                    self.log(f"Work Speed set to {speed_int} RPM", "SUCCESS")
+                return success
+
+        except Exception as e:
+            self.log(f"Error writing work speed: {str(e)}", "ERROR")
+            return False
+
+    def _version_ge(self, version_str, compare_str):
+        """Compare version strings: return True if version_str >= compare_str
+
+        Args:
+            version_str: Version string (e.g., "111", "113")
+            compare_str: Version string to compare against
+
+        Returns:
+            Boolean: True if version_str >= compare_str
+        """
+        try:
+            version_num = int(version_str)
+            compare_num = int(compare_str)
+            return version_num >= compare_num
+        except ValueError:
+            # If version parsing fails, default to newer behavior
+            return True
 
 
 if __name__ == "__main__":

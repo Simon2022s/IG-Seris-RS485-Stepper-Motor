@@ -32,37 +32,22 @@ REG_POSITION_QUERY_HIGH = 0x0005    # Query position (high) - for ? button
 REG_POSITION_LOW = 0x00D2          # Set position (low) - for Set button
 REG_POSITION_HIGH = 0x00D3         # Set position (high) - for Set button
 
-# Motor Parameters (Query Registers - ? buttons)
-REG_CURRENT = 0x000D              # Rated Current (cA) - query
-REG_PPR_LOW = 0x0024                  # Pulses per revolution - query(low 16 bits)
-REG_PPR_HIGH = 0x0025                  # Pulses per revolution - query(high 16 bits)
-REG_STANDBY_CURRENT = 0x000E      # (Bit 0-7 ), Standby/Idle current % - query
+# Motor Parameters (Query Registers - for ? buttons)
+# These registers are used to query current motor settings
+REG_CURRENT = 0x000D              # Rated Current (cA)
+REG_PPR_LOW = 0x0024                  # Pulses per revolution (low 16 bits)
+REG_PPR_HIGH = 0x0025                  # Pulses per revolution (high 16 bits)
+REG_STANDBY_CURRENT = 0x000E      # Standby/Idle current % (Bit 0-7)
 
 REG_WORK_SPEED_16 = 0x009A        # Work Speed(RPM) - 16-bit version
-REG_WORK_SPEED_LOW = 0x00D8        # Work Speed(0.01 RPM)- query(low 16bits)
-REG_WORK_SPEED_HIGH = 0x00D9        # Work Speed(0.01 RPM)- query(high 16bits)
+REG_WORK_SPEED_LOW = 0x00D8        # Work Speed (0.01 RPM) - low 16bits
+REG_WORK_SPEED_HIGH = 0x00D9        # Work Speed (0.01 RPM) - high 16bits
 
-REG_PEAK_CURRENT = 0x0013         # Peak current % - query
-REG_ACCELERATION_QUERY = 0x0098   # Acceleration(ms) - query
-REG_DECELERATION_QUERY = 0x0099   # Deceleration(ms) - query
-REG_START_SPEED_QUERY = 0x0096    # Start speed - query
-REG_STOP_SPEED_QUERY = 0x0097     # Stop speed - query
-
-# Motor Parameters (Set Registers - Set buttons)
-REG_CURRENT_SET = 0x000D              # Rated Current (cA) - set
-REG_PPR_LOW_SET = 0x0024                  # Pulses per revolution - set(low 16 bits)
-REG_PPR_HIGH_SET = 0x0025                  # Pulses per revolution - set(high 16 bits)
-REG_STANDBY_CURRENT_SET = 0x000E      # (Bit 0-7), Standby/Idle current % - set
-
-REG_WORK_SPEED_LOW_SET = 0x00D8        # Work Speed(0.01 RPM)- set (low 16bits)
-REG_WORK_SPEED_HIGH_SET = 0x00D9        # Work Speed(0.01 RPM)- set(high 16bits)
-REG_WORK_SPEED_16_SET = 0x009A        # Work Speed(RPM) - 16-bit version set
-
-REG_PEAK_CURRENT_SET = 0x0013         # Peak current % - set
-REG_ACCELERATION_SET = 0x0098         # Acceleration(ms) - set
-REG_DECELERATION_SET = 0x0099         # Deceleration(ms) - set
-REG_START_SPEED_SET = 0x0096          # Start speed - set
-REG_STOP_SPEED_SET = 0x0097           # Stop speed - set
+REG_PEAK_CURRENT = 0x0013         # Peak current %
+REG_ACCELERATION = 0x0098         # Acceleration (ms)
+REG_DECELERATION = 0x0099         # Deceleration (ms)
+REG_START_SPEED = 0x0096          # Start speed
+REG_STOP_SPEED = 0x0097           # Stop speed
 
 
 # Enable/Disable Control Register

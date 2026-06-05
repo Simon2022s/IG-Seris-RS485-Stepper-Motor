@@ -6,7 +6,6 @@ PyQt5-based user interface for motor control
 import sys
 import os
 import logging
-import json
 from datetime import datetime
 from typing import Optional
 
@@ -41,6 +40,9 @@ class RS485StepperMotorGUI(QMainWindow):
 
         # Initialize serial settings
         self.serial_settings = self.load_serial_settings()
+
+        # Track version number for UI updates
+        self.version_number = None
 
         self.setup_logging()
         self.init_ui()
@@ -112,8 +114,8 @@ class RS485StepperMotorGUI(QMainWindow):
         layout = QVBoxLayout(widget)
 
         # 1. Connection Section
-        setup_group = QGroupBox("Connection")
-        setup_group.setStyleSheet("QGroupBox { font-size: 11px; padding-top: 10px; }")
+        self.connection_group = QGroupBox("Connection")
+        self.connection_group.setStyleSheet("QGroupBox { font-size: 11px; padding-top: 10px; }")
         setup_layout = QHBoxLayout()
 
         # Connection buttons - rectangular with equal dimensions
@@ -206,8 +208,8 @@ class RS485StepperMotorGUI(QMainWindow):
         setup_layout.addStretch()
         setup_layout.addWidget(self.logs_button)
 
-        setup_group.setLayout(setup_layout)
-        layout.addWidget(setup_group)
+        self.connection_group.setLayout(setup_layout)
+        layout.addWidget(self.connection_group)
 
         # 2. Parameters & Status Section
         params_status_group = QGroupBox("Parameters")
@@ -1033,18 +1035,17 @@ class RS485StepperMotorGUI(QMainWindow):
         self.restart_btn.clicked.connect(self.restart_motor)
 
 
-        # Motion controls
+        # Motion controls - Position Control
         self.relative_wait_btn.clicked.connect(self.on_relative_wait_clicked)
         self.relative_immediate_btn.clicked.connect(self.on_relative_immediate_clicked)
         self.absolute_wait_btn.clicked.connect(self.on_absolute_wait_clicked)
         self.absolute_immediate_btn.clicked.connect(self.on_absolute_immediate_clicked)
 
-        # Continuous motion
+        # Continuous motion controls
         self.forward_btn.clicked.connect(self.on_forward_clicked)
         self.backward_btn.clicked.connect(self.on_backward_clicked)
         self.decel_stop_btn.clicked.connect(self.on_decel_stop_clicked)
         self.immed_stop_btn.clicked.connect(self.on_immed_stop_clicked)
-
 
         # Parameters & Status controls - Left side
         self.query_motor_id_btn.clicked.connect(self.on_query_motor_id_clicked)
@@ -1070,18 +1071,6 @@ class RS485StepperMotorGUI(QMainWindow):
         self.query_position_btn.clicked.connect(self.on_query_position_clicked)
         self.set_position_btn.clicked.connect(self.on_set_position_clicked)
 
-        # Motion Control connections
-        self.forward_btn.clicked.connect(self.on_forward_clicked)
-        self.backward_btn.clicked.connect(self.on_backward_clicked)
-        self.decel_stop_btn.clicked.connect(self.on_decel_stop_clicked)
-        self.immed_stop_btn.clicked.connect(self.on_immed_stop_clicked)
-
-        # Position Control connections
-        self.relative_wait_btn.clicked.connect(self.on_relative_wait_clicked)
-        self.relative_immediate_btn.clicked.connect(self.on_relative_immediate_clicked)
-        self.absolute_wait_btn.clicked.connect(self.on_absolute_wait_clicked)
-        self.absolute_immediate_btn.clicked.connect(self.on_absolute_immediate_clicked)
-
         # Hex Command controls
         self.send_hex_btn.clicked.connect(self.on_send_hex_clicked)
         self.send_hex_crc_btn.clicked.connect(self.on_send_hex_crc_clicked)
@@ -1102,10 +1091,8 @@ class RS485StepperMotorGUI(QMainWindow):
 
 
     def load_serial_settings(self):
-        """Load serial settings from file or return defaults"""
-        settings_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'serial_settings.json')
-
-        default_settings = {
+        """Return default serial settings (no file dependency)"""
+        return {
             'port': None,
             'baudrate': DEFAULT_BAUDRATE,
             'bytesize': DEFAULT_BYTESIZE,
@@ -1113,40 +1100,6 @@ class RS485StepperMotorGUI(QMainWindow):
             'stopbits': DEFAULT_STOPBITS
         }
 
-        try:
-            if os.path.exists(settings_file):
-                with open(settings_file, 'r') as f:
-                    saved_settings = json.load(f)
-                    # Validate and merge settings
-                    for key, value in saved_settings.items():
-                        if key in default_settings:
-                            # Validate port exists if specified
-                            if key == 'port' and value:
-                                available_ports = self.controller.scan_ports()
-                                if value not in available_ports:
-                                    self.logger.warning(f"Saved port {value} not available, will auto-detect")
-                                    continue  # Skip this setting, use default
-                            # Validate baudrate is in allowed options
-                            if key == 'baudrate' and value not in BAUDRATE_OPTIONS:
-                                self.logger.warning(f"Saved baudrate {value} not in allowed options, using default")
-                                continue  # Skip this setting, use default
-                            default_settings[key] = value
-                self.logger.info("Loaded and validated saved serial settings")
-        except Exception as e:
-            self.logger.warning(f"Could not load serial settings: {e}, using defaults")
-
-        return default_settings
-
-    def save_serial_settings(self):
-        """Save serial settings to file"""
-        settings_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'serial_settings.json')
-
-        try:
-            with open(settings_file, 'w') as f:
-                json.dump(self.serial_settings, f, indent=2)
-            self.logger.info("Serial settings saved")
-        except Exception as e:
-            self.logger.warning(f"Could not save serial settings: {e}")
 
     def show_serial_setup(self):
         """Show serial setup dialog"""
@@ -1209,7 +1162,6 @@ class RS485StepperMotorGUI(QMainWindow):
             self.handle_log_message("Serial port connected successfully", "SUCCESS")
             self.connection_toggle_btn.setText("Disconnect")
             self.update_ui_state()
-            self.save_serial_settings()  # Save settings after successful connection
         else:
             self.show_error("Failed to connect to serial port. Please check:\n1. Device is connected\n2. Correct COM port is selected\n3. Device is powered on\n4. No other software is using the port")
 
@@ -1218,6 +1170,8 @@ class RS485StepperMotorGUI(QMainWindow):
         self.controller.disconnect()
         self.handle_log_message("Serial port disconnected", "INFO")
         self.connection_toggle_btn.setText("Connect")
+        self.version_number = None
+        self.update_connection_title()
         self.update_ui_state()
 
     def toggle_enable_disable(self):
@@ -1383,56 +1337,9 @@ class RS485StepperMotorGUI(QMainWindow):
         else:
             self.show_error("Failed to execute immediate stop")
 
-    def on_query_current_clicked(self):
-        """Handle query current button"""
-        value = self.controller.read_register_value(REG_CURRENT)
-        if value is not None:
-            self.current_input.setText(str(value))
-            self.handle_log_message(f"Rated Current: {value} cA", "INFO")
-        else:
-            self.show_error("Failed to query current")
-
-    def on_query_ppr_clicked(self):
-        """Handle query PPR button"""
-        value = self.controller.read_register_value(REG_PPR)
-        if value is not None:
-            self.ppr_label.setText(str(value))
-            self.handle_log_message(f"PPR: {value} pulses/rev", "INFO")
-        else:
-            self.show_error("Failed to query PPR")
-
-    def on_query_standby_clicked(self):
-        """Handle query standby current button"""
-        value = self.controller.read_register_value(REG_STANDBY_CURRENT)
-        if value is not None:
-            self.standby_current_label.setText(str(value) + "%")
-            self.handle_log_message(f"Standby Current: {value}%", "INFO")
-        else:
-            self.show_error("Failed to query standby current")
-
-    def on_query_peak_clicked(self):
-        """Handle query peak current button"""
-        value = self.controller.read_register_value(REG_PEAK_CURRENT)
-        if value is not None:
-            self.peak_current_label.setText(str(value) + "%")
-            self.handle_log_message(f"Peak Current: {value}%", "INFO")
-        else:
-            self.show_error("Failed to query peak current")
-
-    def on_query_speed_clicked(self):
-        """Handle query speed button"""
-        low_value = self.controller.read_register_value(REG_SPEED_LOW)
-        high_value = self.controller.read_register_value(REG_SPEED_HIGH)
-        if low_value is not None and high_value is not None:
-            speed = (high_value << 16) | low_value
-            self.speed_value_label.setText(str(speed))
-            self.handle_log_message(f"Current Speed: {speed} pulses/s", "INFO")
-        else:
-            self.show_error("Failed to query speed")
-
     def on_query_acceleration_clicked(self):
         """Handle query acceleration button"""
-        value = self.controller.read_register_value(REG_ACCELERATION_QUERY)
+        value = self.controller.read_register_value(REG_ACCELERATION)
         if value is not None:
             self.acceleration_input.setText(str(value))
             self.handle_log_message(f"Acceleration: {value} ms", "INFO")
@@ -1441,7 +1348,7 @@ class RS485StepperMotorGUI(QMainWindow):
 
     def on_query_deceleration_clicked(self):
         """Handle query deceleration button"""
-        value = self.controller.read_register_value(REG_DECELERATION_QUERY)
+        value = self.controller.read_register_value(REG_DECELERATION)
         if value is not None:
             self.deceleration_input.setText(str(value))
             self.handle_log_message(f"Deceleration: {value} ms", "INFO")
@@ -1461,46 +1368,14 @@ class RS485StepperMotorGUI(QMainWindow):
         else:
             self.show_error("Failed to query position")
 
-    def on_query_voltage_clicked(self):
-        """Handle query voltage button"""
-        # Assuming voltage is in a specific register - you may need to adjust the register address
-        value = self.controller.read_register_value(0x0020)  # Example register
+    def on_query_ppr_clicked(self):
+        """Query PPR (Pulses Per Revolution)"""
+        value = self.controller.read_32bit_register(REG_PPR_LOW, REG_PPR_HIGH)
         if value is not None:
-            voltage = value / 10.0  # Convert to voltage
-            self.voltage_label.setText(f"{voltage:.1f}")
-            self.handle_log_message(f"Voltage: {voltage:.1f}V", "INFO")
+            self.ppr_input.setText(str(value))
+            self.handle_log_message(f"PPR: {value} pulses/rev", "INFO")
         else:
-            self.show_error("Failed to query voltage")
-
-    def on_query_temperature_clicked(self):
-        """Handle query temperature button"""
-        # Assuming temperature is in a specific register - you may need to adjust the register address
-        value = self.controller.read_register_value(0x0021)  # Example register
-        if value is not None:
-            self.temperature_label.setText(str(value))
-            self.handle_log_message(f"Temperature: {value}°C", "INFO")
-        else:
-            self.show_error("Failed to query temperature")
-
-    def on_query_error_clicked(self):
-        """Handle query error button"""
-        value = self.controller.read_register_value(REG_FAULT)
-        if value is not None:
-            error_text = FAULT_MAPPING.get(value, f"Unknown Error ({value})")
-            self.error_code_label.setText(error_text)
-            self.handle_log_message(f"Error Status: {error_text}", "INFO")
-        else:
-            self.show_error("Failed to query error status")
-
-    def on_query_mode_clicked(self):
-        """Handle query control mode button"""
-        value = self.controller.read_register_value(REG_CONTROL_MODE)
-        if value is not None:
-            mode_text = "Absolute" if value == 1 else "Incremental"
-            self.control_mode_label.setText(mode_text)
-            self.handle_log_message(f"Control Mode: {mode_text}", "INFO")
-        else:
-            self.show_error("Failed to query control mode")
+            self.show_error("Failed to query PPR")
 
     # Parameters & Status methods - Left side
     def on_query_motor_id_clicked(self):
@@ -1520,6 +1395,9 @@ class RS485StepperMotorGUI(QMainWindow):
             success = self.controller.set_slave_address(motor_id)
             if success:
                 self.handle_log_message(f"Motor ID set to {motor_id}", "SUCCESS")
+                # Requery version number with new motor ID
+                if self.controller.is_connected():
+                    QTimer.singleShot(300, self.query_version_number)
             else:
                 self.show_error("Failed to set motor ID")
         except ValueError:
@@ -1551,22 +1429,13 @@ class RS485StepperMotorGUI(QMainWindow):
         """Set rated current"""
         try:
             current = int(self.rated_current_input.text())
-            success = self.controller.write_register_value(REG_CURRENT_SET, current)
+            success = self.controller.write_register_value(REG_CURRENT, current)
             if success:
                 self.handle_log_message(f"Rated Current set to {current} cA", "SUCCESS")
             else:
                 self.show_error("Failed to set rated current")
         except ValueError:
             self.show_error("Invalid current value")
-
-    def on_query_ppr_clicked(self):
-        """Query PPR"""
-        value = self.controller.read_32bit_register(REG_PPR_LOW, REG_PPR_HIGH)
-        if value is not None:
-            self.ppr_input.setText(str(value))
-            self.handle_log_message(f"PPR: {value} pulses/rev", "INFO")
-        else:
-            self.show_error("Failed to query PPR")
 
     def on_set_ppr_clicked(self):
         """Set PPR"""
@@ -1576,8 +1445,8 @@ class RS485StepperMotorGUI(QMainWindow):
             low_word = ppr & 0xFFFF
             high_word = (ppr >> 16) & 0xFFFF
 
-            success1 = self.controller.write_register_value(REG_PPR_LOW_SET, low_word)
-            success2 = self.controller.write_register_value(REG_PPR_HIGH_SET, high_word)
+            success1 = self.controller.write_register_value(REG_PPR_LOW, low_word)
+            success2 = self.controller.write_register_value(REG_PPR_HIGH, high_word)
 
             if success1 and success2:
                 self.handle_log_message(f"PPR set to {ppr} pulses/rev", "SUCCESS")
@@ -1601,48 +1470,29 @@ class RS485StepperMotorGUI(QMainWindow):
             self.show_error("Failed to query idle current - no response from device")
 
     def on_query_work_speed_clicked(self):
-        """Query work speed - try both register types"""
-        # Try 16-bit register first (0x009A returns RPM directly)
-        value_16 = self.controller.read_register_value(REG_WORK_SPEED_16)
-        if value_16 is not None:
-            self.work_speed_input.setText(str(value_16))
-            self.handle_log_message(f"Work Speed: {value_16} RPM (16-bit register)", "INFO")
-            return
-
-        # Try 32-bit register (0x00D8-0x00D9 returns 0.01 RPM)
-        value_32 = self.controller.read_32bit_register(REG_WORK_SPEED_LOW, REG_WORK_SPEED_HIGH)
-        if value_32 is not None:
-            rpm_value = value_32 / 100.0  # Convert from 0.01 RPM to RPM
-            self.work_speed_input.setText(str(int(rpm_value)))
-            self.handle_log_message(f"Work Speed: {rpm_value:.2f} RPM (32-bit register)", "INFO")
-            return
-
-        self.show_error("Failed to query work speed from both register types")
+        """Query work speed using version-appropriate method"""
+        # Pass current version number to controller for version-specific behavior
+        version = getattr(self, 'version_number', None)
+        value = self.controller.read_work_speed(version_number=version)
+        if value is not None:
+            self.work_speed_input.setText(str(value))
+            self.handle_log_message(f"Work Speed: {value} RPM", "INFO")
+        else:
+            self.show_error("Failed to query work speed")
 
     def on_set_work_speed_clicked(self):
-        """Set work speed - try both register types"""
+        """Set work speed using version-appropriate method"""
         try:
-            speed_rpm = int(self.work_speed_input.text())
+            speed_rpm = float(self.work_speed_input.text())  # Allow float input for precision
             if speed_rpm < 0:
                 self.show_error("Work speed must be positive")
                 return
 
-            # Try setting 16-bit register first (expects RPM directly)
-            success = self.controller.write_register_value(REG_WORK_SPEED_16_SET, speed_rpm)
+            # Pass current version number to controller for version-specific behavior
+            version = getattr(self, 'version_number', None)
+            success = self.controller.write_work_speed(speed_rpm, version_number=version)
             if success:
-                self.handle_log_message(f"Work Speed set to {speed_rpm} RPM (16-bit register)", "SUCCESS")
-                return
-
-            # Try setting 32-bit register (expects 0.01 RPM)
-            speed_001rpm = speed_rpm * 100  # Convert RPM to 0.01 RPM
-            low_word = speed_001rpm & 0xFFFF
-            high_word = (speed_001rpm >> 16) & 0xFFFF
-
-            success1 = self.controller.write_register_value(REG_WORK_SPEED_LOW_SET, low_word)
-            success2 = self.controller.write_register_value(REG_WORK_SPEED_HIGH_SET, high_word)
-
-            if success1 and success2:
-                self.handle_log_message(f"Work Speed set to {speed_rpm} RPM (32-bit register)", "SUCCESS")
+                self.handle_log_message(f"Work Speed set to {speed_rpm} RPM", "SUCCESS")
             else:
                 self.show_error("Failed to set work speed")
         except ValueError:
@@ -1656,7 +1506,7 @@ class RS485StepperMotorGUI(QMainWindow):
                 self.show_error("Idle current must be between 0 and 100")
                 return
 
-            success = self.controller.write_register_value(REG_STANDBY_CURRENT_SET, idle_current)
+            success = self.controller.write_register_value(REG_STANDBY_CURRENT, idle_current)
             if success:
                 self.handle_log_message(f"Idle Current set to {idle_current}%", "SUCCESS")
             else:
@@ -1669,7 +1519,7 @@ class RS485StepperMotorGUI(QMainWindow):
         """Set acceleration"""
         try:
             acceleration = int(self.acceleration_input.text())
-            success = self.controller.write_register_value(REG_ACCELERATION_SET, acceleration)
+            success = self.controller.write_register_value(REG_ACCELERATION, acceleration)
             if success:
                 self.handle_log_message(f"Acceleration set to {acceleration} ms", "SUCCESS")
             else:
@@ -1681,7 +1531,7 @@ class RS485StepperMotorGUI(QMainWindow):
         """Set deceleration"""
         try:
             deceleration = int(self.deceleration_input.text())
-            success = self.controller.write_register_value(REG_DECELERATION_SET, deceleration)
+            success = self.controller.write_register_value(REG_DECELERATION, deceleration)
             if success:
                 self.handle_log_message(f"Deceleration set to {deceleration} ms", "SUCCESS")
             else:
@@ -1692,7 +1542,7 @@ class RS485StepperMotorGUI(QMainWindow):
     def on_query_stop_speed_clicked(self):
         """Query stop speed"""
         # Assuming stop speed is in a specific register
-        value = self.controller.read_register_value(REG_STOP_SPEED_QUERY)
+        value = self.controller.read_register_value(REG_STOP_SPEED)
         if value is not None:
             self.stop_speed_input.setText(str(value))
             self.handle_log_message(f"Stop Speed: {value}", "INFO")
@@ -1704,7 +1554,7 @@ class RS485StepperMotorGUI(QMainWindow):
         try:
             stop_speed = int(self.stop_speed_input.text())
             # Assuming stop speed register - adjust as needed
-            success = self.controller.write_register_value(REG_STOP_SPEED_SET, stop_speed)
+            success = self.controller.write_register_value(REG_STOP_SPEED, stop_speed)
             if success:
                 self.handle_log_message(f"Stop Speed set to {stop_speed}", "SUCCESS")
             else:
@@ -1715,7 +1565,7 @@ class RS485StepperMotorGUI(QMainWindow):
     def on_query_start_speed_clicked(self):
         """Query start speed"""
         # Assuming start speed is in a specific register
-        value = self.controller.read_register_value(REG_START_SPEED_QUERY)
+        value = self.controller.read_register_value(REG_START_SPEED)
         if value is not None:
             self.start_speed_input.setText(str(value))
             self.handle_log_message(f"Start Speed: {value}", "INFO")
@@ -1727,7 +1577,7 @@ class RS485StepperMotorGUI(QMainWindow):
         try:
             start_speed = int(self.start_speed_input.text())
             # Assuming start speed register - adjust as needed
-            success = self.controller.write_register_value(REG_START_SPEED_SET, start_speed)
+            success = self.controller.write_register_value(REG_START_SPEED, start_speed)
             if success:
                 self.handle_log_message(f"Start Speed set to {start_speed}", "SUCCESS")
             else:
@@ -1785,6 +1635,33 @@ class RS485StepperMotorGUI(QMainWindow):
         # Status update disabled - no status labels in current UI
         pass
 
+    def update_connection_title(self):
+        """Update connection group title with version number"""
+        if self.version_number is not None:
+            self.connection_group.setTitle(f"Connection - v.{self.version_number}")
+        else:
+            self.connection_group.setTitle("Connection")
+
+    def query_version_number(self):
+        """Query and update version number from device"""
+        if not self.controller.is_connected():
+            return
+
+        try:
+            version = self.controller.read_version_number()
+            if version is not None:
+                self.version_number = version
+                self.handle_log_message(f"Device version: {version}", "SUCCESS")
+                self.update_connection_title()
+            else:
+                self.handle_log_message("Failed to query version number", "WARNING")
+                self.version_number = None
+                self.update_connection_title()
+        except Exception as e:
+            self.handle_log_message(f"Error querying version: {str(e)}", "ERROR")
+            self.version_number = None
+            self.update_connection_title()
+
     def update_ui_state(self):
         """Update UI elements based on connection state"""
         connected = self.controller.is_connected()
@@ -1812,6 +1689,15 @@ class RS485StepperMotorGUI(QMainWindow):
         # If not connected, reset enable/disable button to "Enable"
         if not connected:
             self.enable_disable_btn.setText("Enable")
+
+        # Query version number when connected
+        if connected:
+            # Use a single-shot timer to query version after connection is established
+            QTimer.singleShot(500, self.query_version_number)
+        else:
+            # Clear version when disconnected
+            self.version_number = None
+            self.update_connection_title()
 
     def append_log(self, message: str, level: str = "INFO"):
         """Append message to log with color coding"""
